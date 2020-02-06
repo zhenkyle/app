@@ -7,6 +7,7 @@
 // extern crate panic_itm; // logs messages over ITM; requires ITM support
 extern crate panic_semihosting; // logs messages to the host stderr; requires a debugger
 
+use cortex_m::asm;
 use cortex_m_rt::entry;
 use f3:: {
     hal:: {
@@ -38,5 +39,7 @@ fn main() -> ! {
 }
 
 fn delay() {
-    for _ in 1..1_000 {}
+    for _ in 1..10_000 {
+        asm::nop();
+    }
 }
