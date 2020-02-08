@@ -29,6 +29,8 @@ monitor tpiu config internal itm.txt uart off 8000000
 # # OR: make the microcontroller SWO pin output compatible with UART (8N1)
 # # 8000000 must match the core clock frequency
 # # 2000000 is the frequency of the SWO pin
+# # stty -F /dev/ttyUSB0 raw 2000000 -echo
+# # itmdump -f /dev/ttyUSB0
 # monitor tpiu config external uart off 8000000 2000000
 
 # enable ITM port 0
