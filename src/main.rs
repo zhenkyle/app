@@ -15,6 +15,7 @@ use f3::hal::{
     prelude::*,
     serial,
     stm32,
+    time,
 };
 
 #[entry]
@@ -37,13 +38,21 @@ fn main() -> ! {
 
     serial::Serial::usart1(dp.USART1, (tx, rx), 115_200.bps(), clocks, &mut rcc.apb2);
 
+    let mono_timer = time::MonoTimer::new(cp.DWT, clocks);
+    let instant = mono_timer.now();
     unsafe {
         let usart1 = &*stm32::USART1::ptr();
         for byte in b"The quick brown fox jumps over the lazy dog.".iter() {
              usart1.tdr.write(|w| w.tdr().bits(u16::from(*byte)));
          }
     }
+    let elapsed = instant.elapsed();
 
+    iprintln!(stim,
+              "for loop took {} ticks ({} us)",
+              elapsed,
+              elapsed as f32 / mono_timer.frequency().0 as f32 * 1e6
+    );
 
 
     loop {}
