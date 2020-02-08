@@ -33,9 +33,9 @@ fn main() -> ! {
     let rx = gpioa.pa10.into_af7(&mut gpioa.moder, &mut gpioa.afrh);
 
     // clock configuration using the default settings (all clocks run at 8 MHz)
-    let clocks = rcc.cfgr.freeze(&mut flash.acr);
+    let clocks = rcc.cfgr.sysclk(8.mhz()).freeze(&mut flash.acr);
 
-    serial::Serial::usart1(dp.USART1, (tx, rx), 11_5_200.bps(), clocks, &mut rcc.apb2);
+    serial::Serial::usart1(dp.USART1, (tx, rx), 115_200.bps(), clocks, &mut rcc.apb2);
 
     // send a single character
     unsafe {
