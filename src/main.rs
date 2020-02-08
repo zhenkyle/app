@@ -17,12 +17,44 @@ use f3::hal::{
     stm32,
     time,
 };
+use core::fmt::Write; // need this to enable $serial.write_fmt
+
+macro_rules! uprint {
+    ($serial:expr, $($arg:tt)*) => {
+        $serial.write_fmt(format_args!($($arg)*)).ok()
+    };
+}
+
+macro_rules! uprintln {
+    ($serial:expr, $fmt:expr) => {
+        uprint!($serial, concat!($fmt, "\n"))
+    };
+    ($serial:expr, $fmt:expr, $($arg:tt)*) => {
+        uprint!($serial, concat!($fmt, "\n"), $($arg)*)
+    }
+}
+
+struct SerialPort {
+    usart1: &'static mut stm32::usart1::RegisterBlock,
+}
+
+impl core::fmt::Write for SerialPort {
+    fn write_str(&mut self, s: &str) -> Result<(), core::fmt::Error> {
+        // TODO: implement this
+        Ok(())
+    }
+}
 
 #[entry]
 fn main() -> ! {
     let (usart1, mut itm, mono_timer) = init();
-    let instant = mono_timer.now();
     let stim = &mut itm.stim[0];
+
+    let mut serial = SerialPort{usart1};
+
+    let instant = mono_timer.now();
+    uprintln!(serial, "The answer is {}", 40 + 2);
+  /*
     for byte in b"The quick brown fox jumps over the lazy dog.".iter() {
         // wait until it's safe to write tdr
         while usart1.isr.read().txe().bit_is_clear() {}
@@ -30,6 +62,7 @@ fn main() -> ! {
             usart1.tdr.write(|w| w.tdr().bits(u16::from(*byte)));
          };
     }
+*/
     let elapsed = instant.elapsed();
 
     iprintln!(stim,
@@ -41,7 +74,7 @@ fn main() -> ! {
     loop {}
 }
 
-fn init()->(&'static stm32::usart1::RegisterBlock ,
+fn init()->(&'static mut stm32::usart1::RegisterBlock ,
             cortex_m::peripheral::ITM,
             time::MonoTimer) {
     let cp = cortex_m::Peripherals::take().unwrap();
@@ -63,7 +96,8 @@ fn init()->(&'static stm32::usart1::RegisterBlock ,
     let mono_timer = time::MonoTimer::new(cp.DWT, clocks);
 
     unsafe {
-        let usart1 = &*stm32::USART1::ptr();
+        // as *mut _ change const to mut, _ is a type
+        let usart1 = &mut *(stm32::USART1::ptr() as *mut _);
         (usart1, cp.ITM, mono_timer)
     }
 }
