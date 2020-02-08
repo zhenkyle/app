@@ -20,9 +20,31 @@ use f3::hal::{
 
 #[entry]
 fn main() -> ! {
-    let mut cp = cortex_m::Peripherals::take().unwrap();
-    let stim = &mut cp.ITM.stim[0];
-    iprintln!(stim, "Hello, world!");
+    let (usart1, mut itm, mono_timer) = init();
+    let instant = mono_timer.now();
+    let stim = &mut itm.stim[0];
+    for byte in b"The quick brown fox jumps over the lazy dog.".iter() {
+        // wait until it's safe to write tdr
+        while usart1.isr.read().txe().bit_is_clear() {}
+        unsafe {
+            usart1.tdr.write(|w| w.tdr().bits(u16::from(*byte)));
+         };
+    }
+    let elapsed = instant.elapsed();
+
+    iprintln!(stim,
+              "for loop took {} ticks ({} us)",
+              elapsed,
+              elapsed as f32 / mono_timer.frequency().0 as f32 * 1e6
+    );
+
+    loop {}
+}
+
+fn init()->(&'static stm32::usart1::RegisterBlock ,
+            cortex_m::peripheral::ITM,
+            time::MonoTimer) {
+    let cp = cortex_m::Peripherals::take().unwrap();
 
     let dp = stm32::Peripherals::take().unwrap();
 
@@ -39,24 +61,9 @@ fn main() -> ! {
     serial::Serial::usart1(dp.USART1, (tx, rx), 115_200.bps(), clocks, &mut rcc.apb2);
 
     let mono_timer = time::MonoTimer::new(cp.DWT, clocks);
-    let instant = mono_timer.now();
+
     unsafe {
         let usart1 = &*stm32::USART1::ptr();
-        for byte in b"The quick brown fox jumps over the lazy dog.".iter() {
-            // wait until it's safe to write tdr
-            while usart1.isr.read().txe().bit_is_clear() {}
-
-            usart1.tdr.write(|w| w.tdr().bits(u16::from(*byte)));
-         }
+        (usart1, cp.ITM, mono_timer)
     }
-    let elapsed = instant.elapsed();
-
-    iprintln!(stim,
-              "for loop took {} ticks ({} us)",
-              elapsed,
-              elapsed as f32 / mono_timer.frequency().0 as f32 * 1e6
-    );
-
-
-    loop {}
 }
