@@ -37,10 +37,11 @@ fn main() -> ! {
 
     serial::Serial::usart1(dp.USART1, (tx, rx), 115_200.bps(), clocks, &mut rcc.apb2);
 
-    // send a single character
     unsafe {
         let usart1 = &*stm32::USART1::ptr();
-        usart1.tdr.write(|w| w.tdr().bits(u16::from(b'X')));
+        for byte in b"The quick brown fox jumps over the lazy dog.".iter() {
+             usart1.tdr.write(|w| w.tdr().bits(u16::from(*byte)));
+         }
     }
 
 
