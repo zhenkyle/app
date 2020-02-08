@@ -21,6 +21,9 @@ use core::fmt::Write; // need this to enable $serial.write_fmt
 
 macro_rules! uprint {
     ($serial:expr, $($arg:tt)*) => {
+        // ok() turn Result to Option, the point is USE Result,
+        // not interested in Option, only interested in side effect
+        // of write_fmt.
         $serial.write_fmt(format_args!($($arg)*)).ok()
     };
 }
@@ -40,7 +43,12 @@ struct SerialPort {
 
 impl core::fmt::Write for SerialPort {
     fn write_str(&mut self, s: &str) -> Result<(), core::fmt::Error> {
-        // TODO: implement this
+    for byte in s.as_bytes().iter() {
+        while self.usart1.isr.read().txe().bit_is_clear() {}
+        unsafe {
+            self.usart1.tdr.write(|w| w.tdr().bits(u16::from(*byte)));
+         };
+    }
         Ok(())
     }
 }
@@ -54,15 +62,6 @@ fn main() -> ! {
 
     let instant = mono_timer.now();
     uprintln!(serial, "The answer is {}", 40 + 2);
-  /*
-    for byte in b"The quick brown fox jumps over the lazy dog.".iter() {
-        // wait until it's safe to write tdr
-        while usart1.isr.read().txe().bit_is_clear() {}
-        unsafe {
-            usart1.tdr.write(|w| w.tdr().bits(u16::from(*byte)));
-         };
-    }
-*/
     let elapsed = instant.elapsed();
 
     iprintln!(stim,
