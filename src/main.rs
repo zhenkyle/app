@@ -43,7 +43,10 @@ fn main() -> ! {
     unsafe {
         let usart1 = &*stm32::USART1::ptr();
         for byte in b"The quick brown fox jumps over the lazy dog.".iter() {
-             usart1.tdr.write(|w| w.tdr().bits(u16::from(*byte)));
+            // wait until it's safe to write tdr
+            while usart1.isr.read().txe().bit_is_clear() {}
+
+            usart1.tdr.write(|w| w.tdr().bits(u16::from(*byte)));
          }
     }
     let elapsed = instant.elapsed();
