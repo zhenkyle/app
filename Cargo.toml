@@ -26,6 +26,11 @@ panic-itm = "0.4.1"
 # version = "0.7.1"
 
 # this lets you use `cargo fix`!
+[lib]
+name = "app"
+test = false
+bench = false
+
 [[bin]]
 name = "app"
 test = false
