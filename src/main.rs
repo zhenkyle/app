@@ -14,21 +14,33 @@ use cortex_m::{iprintln, asm};
 use app::{uprintln,uprint,SerialPort};
 #[allow(unused_imports)]
 use core::fmt::Write; // need this to enable $serial.write_fmt
+use heapless::{Vec, consts};
 
 #[entry]
 fn main() -> ! {
     let (usart1, _itm, _mono_timer) = app::init();
+    let mut buffer: Vec<u8, consts::U32> = Vec::new();
 
     loop {
+        buffer.clear();
         // Wait until there's data available
         while usart1.isr.read().rxne().bit_is_clear() {}
 
         // Retrieve the data
         let byte = usart1.rdr.read().rdr().bits() as u8;
 
-        while usart1.isr.read().txe().bit_is_clear() {}
-        unsafe {
-            usart1.tdr.write(|w| w.tdr().bits(u16::from(byte)));
+        if byte != b'\r' {
+            buffer.push(byte).unwrap();
+            continue;
+        }
+
+        buffer.reverse();
+
+        for byte in buffer.iter() {
+            while usart1.isr.read().txe().bit_is_clear() {}
+            unsafe {
+                usart1.tdr.write(|w| w.tdr().bits(u16::from(*byte)));
+            }
         }
     }
 }
