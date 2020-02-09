@@ -1,4 +1,4 @@
-//#![deny(unsafe_code)] // usart1.tdr.write is unsafe
+#![deny(unsafe_code)] // usart1.tdr.write is unsafe
 #![no_std]
 #![no_main]
 
@@ -21,34 +21,29 @@ fn main() -> ! {
     let (usart1, _itm, _mono_timer) = app::init();
     let mut buffer: Vec<u8, consts::U32> = Vec::new();
 
+    let mut serial = SerialPort{usart1};
+
     loop {
         buffer.clear();
 
         loop {
             // Wait until there's data available
-            while usart1.isr.read().rxne().bit_is_clear() {}
+            while serial.usart1.isr.read().rxne().bit_is_clear() {}
 
             // Retrieve the data
-            let byte = usart1.rdr.read().rdr().bits() as u8;
+            let byte = serial.usart1.rdr.read().rdr().bits() as u8;
 
             if byte != b'\r' {
                 if buffer.push(byte).is_err() {
-                    for byte in b"error: buffer full\n\r" {
-                        while usart1.isr.read().txe().bit_is_clear() {}
-                        unsafe {
-                            usart1.tdr.write(|w| w.tdr().bits(u16::from(*byte)));
-                        }
-                    }
+                    uprintln!(serial, "error: buffer full\n\r");
                     break;
                 };
                 continue;
             }
 
+//            uprintln!(serial, "buffer is :{}", core::str::from_utf8(&buffer).unwrap());
             for byte in buffer.iter().rev().chain(&[b'\n', b'\r']) {
-                while usart1.isr.read().txe().bit_is_clear() {}
-                unsafe {
-                    usart1.tdr.write(|w| w.tdr().bits(u16::from(*byte)));
-                }
+                uprint!(serial, "{}", core::char::from_u32(*byte as u32).unwrap());
             }
             break;
         }
