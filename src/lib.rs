@@ -27,5 +27,6 @@ pub fn init()->(&'static stm32::i2c1::RegisterBlock, hal::delay::Delay, cortex_m
 
     let delay = hal::delay::Delay::new(cp.SYST, clocks);
 
-    unsafe { (&*stm32::I2C1::ptr(), delay, cp.ITM) }
+//    unsafe { (&*stm32::I2C1::ptr(), delay, cp.ITM) }
+    unsafe { (&mut *(stm32::I2C1::ptr() as *mut _), delay, cp.ITM) }
 }
