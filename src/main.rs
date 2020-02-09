@@ -1,4 +1,4 @@
-#![deny(unsafe_code)]
+//#![deny(unsafe_code)] // usart1.tdr.write is unsafe
 #![no_std]
 #![no_main]
 
@@ -24,9 +24,12 @@ fn main() -> ! {
         while usart1.isr.read().rxne().bit_is_clear() {}
 
         // Retrieve the data
-        let _byte = usart1.rdr.read().rdr().bits() as u8;
+        let byte = usart1.rdr.read().rdr().bits() as u8;
 
-        asm::bkpt();
+        while usart1.isr.read().txe().bit_is_clear() {}
+        unsafe {
+            usart1.tdr.write(|w| w.tdr().bits(u16::from(byte)));
+        }
     }
 }
 
