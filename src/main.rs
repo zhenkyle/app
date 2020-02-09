@@ -7,30 +7,26 @@
 // extern crate panic_abort; // requires nightly
 extern crate panic_itm; // logs messages over ITM; requires ITM support
 //extern crate panic_semihosting; // logs messages to the host stderr; requires a debugger
-
-#[allow(unused_imports)]
-use cortex_m::{iprintln};
 use cortex_m_rt::entry;
+#[allow(unused_imports)]
+use cortex_m::{iprintln, asm};
+#[allow(unused_imports)]
 use app::{uprintln,uprint,SerialPort};
+#[allow(unused_imports)]
 use core::fmt::Write; // need this to enable $serial.write_fmt
 
 #[entry]
 fn main() -> ! {
-    let (usart1, mut itm, mono_timer) = app::init();
-    let stim = &mut itm.stim[0];
+    let (usart1, _itm, _mono_timer) = app::init();
 
-    let mut serial = SerialPort{usart1};
+    loop {
+        // Wait until there's data available
+        while usart1.isr.read().rxne().bit_is_clear() {}
 
-    let instant = mono_timer.now();
-    uprintln!(serial, "The answer is {}", 40 + 2);
-    let elapsed = instant.elapsed();
+        // Retrieve the data
+        let _byte = usart1.rdr.read().rdr().bits() as u8;
 
-    iprintln!(stim,
-              "for loop took {} ticks ({} us)",
-              elapsed,
-              elapsed as f32 / mono_timer.frequency().0 as f32 * 1e6
-    );
-
-    loop {}
+        asm::bkpt();
+    }
 }
 
