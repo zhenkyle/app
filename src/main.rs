@@ -23,24 +23,34 @@ fn main() -> ! {
 
     loop {
         buffer.clear();
-        // Wait until there's data available
-        while usart1.isr.read().rxne().bit_is_clear() {}
 
-        // Retrieve the data
-        let byte = usart1.rdr.read().rdr().bits() as u8;
+        loop {
+            // Wait until there's data available
+            while usart1.isr.read().rxne().bit_is_clear() {}
 
-        if byte != b'\r' {
-            buffer.push(byte).unwrap();
-            continue;
-        }
+            // Retrieve the data
+            let byte = usart1.rdr.read().rdr().bits() as u8;
 
-        buffer.reverse();
-
-        for byte in buffer.iter() {
-            while usart1.isr.read().txe().bit_is_clear() {}
-            unsafe {
-                usart1.tdr.write(|w| w.tdr().bits(u16::from(*byte)));
+            if byte != b'\r' {
+                if buffer.push(byte).is_err() {
+                    for byte in b"error: buffer full\n\r" {
+                        while usart1.isr.read().txe().bit_is_clear() {}
+                        unsafe {
+                            usart1.tdr.write(|w| w.tdr().bits(u16::from(*byte)));
+                        }
+                    }
+                    break;
+                };
+                continue;
             }
+
+            for byte in buffer.iter().rev().chain(&[b'\n', b'\r']) {
+                while usart1.isr.read().txe().bit_is_clear() {}
+                unsafe {
+                    usart1.tdr.write(|w| w.tdr().bits(u16::from(*byte)));
+                }
+            }
+            break;
         }
     }
 }
