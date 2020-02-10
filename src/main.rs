@@ -31,7 +31,7 @@ fn main() -> ! {
      */
         i2c1.cr2.write(|w| {
             w.start().set_bit();
-            w.sadd().bits(MAGNETOMETER as u16);
+            w.sadd().bits((MAGNETOMETER << 1) as u16);
             w.rd_wrn().clear_bit();
             w.nbytes().bits(1);
             w.autoend().clear_bit()
@@ -46,12 +46,12 @@ fn main() -> ! {
 
     // Stage 2: Receive the contents of the register we asked for
     i2c1.cr2.write(|w| w.nbytes().bits(1)            // Number of bits to read
-                   .sadd().bits(MAGNETOMETER as u16)       // Slave address
+                   .sadd().bits((MAGNETOMETER <<1) as u16)       // Slave address
                    .rd_wrn().set_bit()                     // 0 Master request a read
                    .autoend().set_bit()                  // STOP automaticly
                    .start().set_bit());                    // START
     
-    while i2c1.isr.read().tc().is_not_complete() {};       // Wailt until transfer is complete
+    while i2c1.isr.read().rxne().bit_is_clear() {};       // Wailt until read is complete
     
     let byte = i2c1.rxdr.read().rxdata().bits();
 
