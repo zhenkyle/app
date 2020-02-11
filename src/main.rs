@@ -19,38 +19,22 @@ use m::Float;
 
 #[entry]
 fn main() -> ! {
-    let (mut leds, mut lsm303dlhc, mut delay, mut _itm) = app::init();
+    const XY_GAIN: f32 = 1100.; // LSB, unit G
+    const Z_GAIN: f32 = 980.;    // LSB, unit G
+    
+    let (mut _leds, mut lsm303dlhc, mut delay, mut itm) = app::init();
+    
     loop {
-        // Note: I16x3 is a struct, for Destructing Structs
-        // See https://doc.rust-lang.org/book/ch18-03-pattern-syntax.html
-        let lsm303dlhc::I16x3 { x, y, ..} = lsm303dlhc.mag().unwrap();
+        let lsm303dlhc::I16x3 { x, y, z } = lsm303dlhc.mag().unwrap();
 
-        let theta = (y as f32).atan2(x as f32); // in radians
+        let x = f32::from(x) / XY_GAIN;
+        let y = f32::from(y) / XY_GAIN;
+        let z = f32::from(z) / Z_GAIN;
 
-        let dir = if theta >= - PI/8.0 && theta < PI/8.0 {
-            led::Direction::South
-        } else if theta >= PI/8.0 && theta < PI * 3.0 / 8.0 {
-            led::Direction::Southeast
-        } else if theta >= 3.0 * PI/ 8.0 && theta < PI * 5.0 / 8.0 {
-            led::Direction::East
-        } else if theta >= PI * 5.0 / 8.0 && theta < PI * 7.0 / 8.0 {
-            led::Direction::Northeast
-        } else if theta >= PI * 7.0 / 8.0 && theta <= PI ||
-        theta > -PI && theta < -PI * 7.0 / 8.0 {
-            led::Direction::North
-        } else if theta >= -PI * 7.0 / 8.0 && theta < - PI * 5.0 / 8.0 {
-            led::Direction::Northwest
-        } else if theta >= -PI * 5.0 / 8.0 && theta < - PI * 3.0 / 8.0 {
-            led::Direction::West
-        } else {
-            led::Direction::Southwest
-        };
-        
-        
-        leds.iter_mut().for_each(|led| led.off());
-        leds[dir].on();
+        let mag = (x * x + y * y + z * z).sqrt();
 
-        delay.delay_ms(100_u8);
+        iprintln!(&mut itm.stim[0], "{} mG", mag * 1_000.);
+        delay.delay_ms(500_u16);
     }
 }
 
