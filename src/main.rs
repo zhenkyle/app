@@ -26,31 +26,31 @@ fn main() -> ! {
         let lsm303dlhc::I16x3 { x, y, ..} = lsm303dlhc.mag().unwrap();
 
         let theta = (y as f32).atan2(x as f32); // in radians
-        let mut dir = led::Direction::Southeast;
-        if theta >= - PI/8.0 && theta < PI/8.0 {
-            dir = led::Direction::South;
+
+        let dir = if theta >= - PI/8.0 && theta < PI/8.0 {
+            led::Direction::South
         } else if theta >= PI/8.0 && theta < PI * 3.0 / 8.0 {
-            dir = led::Direction::Southeast;
+            led::Direction::Southeast
         } else if theta >= 3.0 * PI/ 8.0 && theta < PI * 5.0 / 8.0 {
-            dir = led::Direction::East;
+            led::Direction::East
         } else if theta >= PI * 5.0 / 8.0 && theta < PI * 7.0 / 8.0 {
-            dir = led::Direction::Northeast;
+            led::Direction::Northeast
         } else if theta >= PI * 7.0 / 8.0 && theta <= PI ||
         theta > -PI && theta < -PI * 7.0 / 8.0 {
-            dir = led::Direction::North;
+            led::Direction::North
         } else if theta >= -PI * 7.0 / 8.0 && theta < - PI * 5.0 / 8.0 {
-            dir = led::Direction::Northwest;
+            led::Direction::Northwest
         } else if theta >= -PI * 5.0 / 8.0 && theta < - PI * 3.0 / 8.0 {
-            dir = led::Direction::West;
+            led::Direction::West
         } else {
-            dir = led::Direction::Southwest;
-        }
+            led::Direction::Southwest
+        };
         
         
         leds.iter_mut().for_each(|led| led.off());
         leds[dir].on();
 
-        delay.delay_ms(1_000_u16);
+        delay.delay_ms(100_u8);
     }
 }
 
