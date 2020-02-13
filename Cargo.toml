@@ -16,6 +16,9 @@ f3 = { git = "https://github.com/tkeksa/f3.git" }
 panic-itm = "0.4.1"
 heapless = "0.5.3"
 m = "0.1.1"
+stm32f3xx-hal = "0.4.0"
+embedded-graphics = "0.6.0-alpha.3"
+ssd1306 = "0.3.0-alpha.4"
 
 # Uncomment for the allocator example.
 # alloc-cortex-m = "0.3.5"
