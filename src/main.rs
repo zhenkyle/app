@@ -2,63 +2,105 @@
 #![no_std]
 #![no_main]
 
-#[allow(unused_imports)]
-use cortex_m::{ iprint, iprintln};
+extern crate cortex_m;
+extern crate cortex_m_rt as rt;
+extern crate panic_semihosting;
+extern crate stm32f3xx_hal as hal;
 
-use cortex_m_rt::entry;
-
-use f3::hal::prelude::*; // for DelayMs
-use f3::lsm303dlhc;
-use m::Float;
+use cortex_m_rt::{ExceptionFrame, entry, exception};
+use embedded_graphics::prelude::*;
+use embedded_graphics::primitives::{Circle, Line, Rectangle as Rect};
+use embedded_graphics::pixelcolor::BinaryColor;
+use embedded_graphics::style::PrimitiveStyleBuilder;
+use hal::spi::{Mode, Phase, Polarity, Spi};
+use hal::prelude::*;
+use hal::stm32;
+use hal::delay::Delay;
+use ssd1306::prelude::*;
+use ssd1306::Builder;
 
 #[entry]
 fn main() -> ! {
-    const SENSITIVITY: f32 = 12. / (1 << 14) as f32; // 16 bit 1 bit sign, 15 significent bit for 12g
-    const THRESHOLD: f32 = 0.5;
+    let cp = cortex_m::Peripherals::take().unwrap();
+    let dp = stm32::Peripherals::take().unwrap();
+
+    let mut flash = dp.FLASH.constrain();
+    let mut rcc = dp.RCC.constrain();
+
+    let clocks = rcc.cfgr.sysclk(8.mhz()).freeze(&mut flash.acr);
+
+    let mut gpioa = dp.GPIOA.split(&mut rcc.ahb);
+    let mut gpiob = dp.GPIOB.split(&mut rcc.ahb);
     
-    let (mut lsm303dlhc, mut delay, mono_timer, mut itm) = app::init();
+    let mut delay = Delay::new(cp.SYST, clocks);
+    
+    // SPI
+    let sck = gpioa.pa5.into_af5(&mut gpioa.moder, &mut gpioa.afrl);
+    let miso = gpioa.pa6.into_af5(&mut gpioa.moder, &mut gpioa.afrl);
+    let mosi = gpioa.pa7.into_af5(&mut gpioa.moder, &mut gpioa.afrl);
 
-    // extend sensing rang to `[-12g, +12g]`
-    lsm303dlhc.set_accel_sensitivity(lsm303dlhc::Sensitivity::G12).unwrap();
+    let spi = Spi::spi1(
+        dp.SPI1,
+        (sck, miso, mosi),
+        Mode {
+            polarity: Polarity::IdleLow,
+            phase: Phase::CaptureOnFirstTransition,
+        },
+        8.mhz(),
+        clocks,
+        &mut rcc.apb2,
+    );
 
-    let measurement_time = mono_timer.frequency().0; // 8,000,000 ticks, that is 1 second
-    // instant have three state:
-    // (1) None: below threshold not measuring
-    // (2) Some if < 1 second: above threshold , start measuring
-    // (3) Somer >=1 sencod: outputing result, end measuring
-    let mut instant = None;
-    let mut max_g = 0.;
-    loop {
-        let g_x = f32::from(lsm303dlhc.accel().unwrap().x).abs() * SENSITIVITY;
+    // rst and dc PIN
+    let mut rst = gpiob.pb0.into_push_pull_output(&mut gpiob.moder, &mut gpiob.otyper);
+    let dc = gpiob.pb1.into_push_pull_output(&mut gpiob.moder, &mut gpiob.otyper);
+    
 
-        match instant {
-            None => {
-                if g_x > THRESHOLD {
-                    iprintln!(&mut itm.stim[0], "START!");
-                    
-                    max_g = g_x;
-                    instant = Some(mono_timer.now());
-                }
-            }
-            // destruct Option instant to Mono_timer instant, ref means: instant = & mono_timer.now() // right ?
-            Some(ref instant)  if instant.elapsed() < measurement_time => {
-                if g_x > max_g {
-                    max_g = g_x;
-                }
-            }
-            _ => {
-                // Report max value
-                iprintln!(&mut itm.stim[0], "Max acceleration: {}g", max_g);
+    let mut disp: GraphicsMode<_> = Builder::new().connect_spi(spi, dc).into();
 
-                // Measurement done
-                instant = None;
+    disp.reset(&mut rst, &mut delay).unwrap();
 
-                // Reset
-                max_g = 0.;
-            }
-        }
+    disp.init().unwrap();
+    disp.flush().unwrap();
 
-        delay.delay_ms(50_u8);
-    }
+    let style = PrimitiveStyleBuilder::new()
+        .stroke_width(1)
+        .stroke_color(BinaryColor::On)
+        .build();
+
+    Line::new(Point::new(8, 16 + 16), Point::new(8 + 16, 16 + 16))
+        .into_styled(style)
+        .into_iter().draw(&mut disp);
+
+
+    Line::new(Point::new(8, 16 + 16), Point::new(8 + 8, 16))
+        .into_styled(style)
+        .into_iter().draw(&mut disp);
+
+
+    Line::new(Point::new(8 + 16, 16 + 16), Point::new(8 + 8, 16))
+        .into_styled(style)
+        .into_iter().draw(&mut disp);
+
+
+    Rect::new(Point::new(48, 16), Point::new(48 + 16, 16 + 16))
+        .into_styled(style)
+        .into_iter().draw(&mut disp);
+
+
+
+    Circle::new(Point::new(96, 16 + 8), 8)
+        .into_styled(style)
+        .into_iter().draw(&mut disp);
+
+
+    disp.flush().unwrap();
+
+    loop {}
+}
+
+#[exception]
+fn HardFault(ef: &ExceptionFrame) -> ! {
+    panic!("{:#?}", ef);
 }
 
